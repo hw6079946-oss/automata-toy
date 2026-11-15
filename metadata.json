@@ -1,0 +1,6 @@
+{
+  "name": "Atelier Automaton — 3D Modular Automata Engine",
+  "description": "Interactive 3D wooden & brass automata toy framework engine with modular cams, mechanical linkages, gears, and drag-and-drop mechanism design.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
