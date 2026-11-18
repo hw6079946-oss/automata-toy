@@ -152,10 +152,10 @@ export const MechanismAtlasModal: React.FC<MechanismAtlasModalProps> = ({
           <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#1C1917]/10">
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold text-[#1C1917]">
-                02. 曲柄摇杆四连杆机构 (4-Bar Crank-Rocker)
+                02. 偏置直齿轮曲柄摇杆四连杆机构 (Offset-Gear 4-Bar Crank-Rocker)
               </h3>
               <p className="text-xs text-[#57534E] leading-relaxed">
-                将主轴的连续圆周旋转转换为上方木偶的往复俯仰或水平划桨动作。在 3D 视图中可直接拖动
+                主轴通过 1:1 啮合的直齿轮组将曲柄销偏置到独立副轴上（避开贯穿箱体的水平钢制传动轴），再经高位连杆、摇杆与垂向导向顶杆将圆周旋转转为上方木偶的往复俯仰或划桨动作。在 3D 视图中可直接拖动
                 <strong className="text-[#1C1917]">红环标记的黄铜支点</strong>，实时调整摇杆支点高度 (Y) 与前后偏置 (Z)。
               </p>
             </div>
@@ -207,11 +207,43 @@ export const MechanismAtlasModal: React.FC<MechanismAtlasModalProps> = ({
                 主轴上的垂直半圆凸轮具有 180° 圆弧摩擦工作段与 180° 平切退让空行程：圆弧段切向贴合托盘底面时驱动立轴与舞台指示箭头顺畅旋转；平切侧转至上方时与托盘脱开形成清晰间隙，令箭头精确停歇驻留，从而把连续旋转转换为清晰的「旋转—停顿」间歇步进动作。
               </p>
             </div>
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-semibold text-[#1C1917]">
+                09. 苏格兰轭水平纯简谐往复机构 (Scotch Yoke Horizontal Shuttle)
+              </h3>
+              <p className="text-xs text-[#57534E] leading-relaxed">
+                主轴 16 齿直齿轮驱动上方偏置曲柄齿轮，将旋转的黄铜曲柄销与滑动铜块约束在垂直槽框内；框架沿双钢导轨作无畸变的纯正弦水平推拉（z = R·cosθ），可自由搭配「双人拉木锯 / 木匠推刨 / 织机投梭 / 锻炉风箱 / 桌面冰球」等水平往复舞台场景。
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-semibold text-[#1C1917]">
+                10. 90° 肘杆对称开合机构 (Twin 90° Bell-Crank / Clamshell)
+              </h3>
+              <p className="text-xs text-[#57534E] leading-relaxed">
+                主轴直齿轮驱动上方偏置曲柄连杆带动双导轨垂直十字头升降，再通过两侧对称拉杆驱动一对 90° L 形肘杆绕支点相向摆动，把上下行程直接换向为沿台面 X 轴反向对开的同步滑块；联动双 V 形推拉连杆与后置曲柄连杆，分别实现「双门打开·小鸟冲出报时并缩回」与「双人无穿模同步鼓掌」木偶舞台。
+              </p>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <h3 className="text-sm font-semibold text-[#1C1917]">
+                11. 七凸轮机械数字显示机构 (7-Cam Digital Numbers · yh246801)
+              </h3>
+              <p className="text-xs text-[#57534E] leading-relaxed">
+                主轴同轴排布 7 枚分别编码 a–g 七段数码条的黄铜轮廓凸轮（每转 36° 切换一位，0–9 顺/倒数循环），经垂直导向推杆与舞台上方水平枢轴摇臂连杆驱动 7 条弯折钢丝，使显示段直立亮出，熄灭段向后平折 90° 隐入水平面。
+              </p>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <h3 className="text-sm font-semibold text-[#1C1917]">
+                12. 三凸轮可编程写字机械臂 (3-Cam Programmable Drawing Automata · Cams as Code)
+              </h3>
+              <p className="text-xs text-[#57534E] leading-relaxed">
+                借鉴早稻田大学 PDA-0“凸轮即代码、绘图即执行”思路：主轴同轴装配 X（肩轴摆角）、Y（平行四连杆肘角）、Z（笔夹抬落）三枚滚子包络黄铜凸轮，经垂直滚子推杆与三组直角摇臂驱动双节写字机械臂在倾斜画板上写出清晰「1 2」，换笔与回程时自动抬笔悬空不留连线。
+              </p>
+            </div>
           </section>
 
           {/* 3. Quick Load Classic Presets */}
           <section className="space-y-2.5 pt-2 border-t border-[#1C1917]/10">
-            <h3 className="text-sm font-semibold text-[#1C1917]">09. 经典样板一键加载</h3>
+            <h3 className="text-sm font-semibold text-[#1C1917]">13. 经典样板一键加载</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {CLASSIC_PRESETS.map((preset) => (
                 <button

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import {
+  ArrowLeftRight,
   ChevronDown,
   ChevronUp,
   CircleDot,
@@ -8,12 +9,15 @@ import {
   Disc,
   Disc2,
   GitCommitHorizontal,
+  Hash,
+  MoveHorizontal,
+  PenTool,
   Plus,
   Repeat,
   StepForward,
   Trash2,
 } from 'lucide-react';
-import { sampleCycleCurve } from '../engine/kinematics';
+import { sampleCycleCurve, solveDigitalNumbers, solveWritingCam } from '../engine/kinematics';
 import { CLASSIC_PRESETS } from '../engine/presets';
 import type {
   AutomataBlueprint,
@@ -23,6 +27,7 @@ import type {
   MaterialFinishId,
   ModuleType,
   TopperType,
+  WritingDigitPattern,
 } from '../engine/types';
 
 export type DockTabId = 'build' | 'motion' | 'presets';
@@ -69,6 +74,18 @@ const TOPPER_LABELS: Array<{ id: TopperType; name: string }> = [
   { id: 'windmill', name: '木构风车' },
   { id: 'propeller', name: '十字螺旋桨' },
   { id: 'arrow', name: '指示箭头' },
+  { id: 'sawyers', name: '双人拉木锯' },
+  { id: 'carpenter', name: '木匠推刨' },
+  { id: 'loom', name: '织机投梭' },
+  { id: 'bellows', name: '锻炉风箱' },
+  { id: 'hockey', name: '桌面冰球' },
+  { id: 'double-doors', name: '双门打开' },
+  { id: 'clapping', name: '双人鼓掌' },
+  { id: 'duck-egg', name: '鸭子下蛋' },
+  { id: 'rattle-drum', name: '拨浪鼓' },
+  { id: 'donkey-mill', name: '毛驴拉磨' },
+  { id: 'digital-display', name: '7段数字翻牌' },
+  { id: 'writing-arm', name: '写字机械臂「1 2」' },
   { id: 'none', name: '裸露顶杆' },
 ];
 
@@ -222,7 +239,7 @@ export const BottomControlDock: React.FC<BottomControlDockProps> = ({
                     </h3>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                     <button
                       type="button"
                       draggable
@@ -374,6 +391,82 @@ export const BottomControlDock: React.FC<BottomControlDockProps> = ({
                         半圆间歇·箭头
                       </span>
                     </button>
+
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, 'scotch-yoke')}
+                      onClick={() => onAddModule('scotch-yoke')}
+                      className="flex flex-col items-start gap-0.5 p-1.5 text-left rounded-lg border border-[#1C1917]/12 bg-[#F3EFE6]/70 hover:bg-[#E5E0D5] hover:border-[#B45309]/50 transition-colors cursor-grab active:cursor-grabbing"
+                    >
+                      <div className="flex items-center justify-between w-full text-[#B45309]">
+                        <MoveHorizontal className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-semibold text-[#1C1917] whitespace-nowrap">
+                        苏格兰轭滑槽
+                      </span>
+                      <span className="text-[11px] text-[#57534E] leading-tight whitespace-nowrap">
+                        水平往复·拉木锯
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, 'bell-crank')}
+                      onClick={() => onAddModule('bell-crank')}
+                      className="flex flex-col items-start gap-0.5 p-1.5 text-left rounded-lg border border-[#1C1917]/12 bg-[#F3EFE6]/70 hover:bg-[#E5E0D5] hover:border-[#B45309]/50 transition-colors cursor-grab active:cursor-grabbing"
+                    >
+                      <div className="flex items-center justify-between w-full text-[#B45309]">
+                        <ArrowLeftRight className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-semibold text-[#1C1917] whitespace-nowrap">
+                        90°肘杆开合
+                      </span>
+                      <span className="text-[11px] text-[#57534E] leading-tight whitespace-nowrap">
+                        对称开合·双门/鼓掌
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, 'digital-numbers')}
+                      onClick={() => onAddModule('digital-numbers')}
+                      className="flex flex-col items-start gap-0.5 p-1.5 text-left rounded-lg border border-[#1C1917]/12 bg-[#F3EFE6]/70 hover:bg-[#E5E0D5] hover:border-[#B45309]/50 transition-colors cursor-grab active:cursor-grabbing"
+                    >
+                      <div className="flex items-center justify-between w-full text-[#B45309]">
+                        <Hash className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-semibold text-[#1C1917] whitespace-nowrap">
+                        7段数字凸轮
+                      </span>
+                      <span className="text-[11px] text-[#57534E] leading-tight whitespace-nowrap">
+                        七凸轮·机械计数器
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, 'writing-cam')}
+                      onClick={() => onAddModule('writing-cam')}
+                      className="flex flex-col items-start gap-0.5 p-1.5 text-left rounded-lg border border-[#1C1917]/12 bg-[#F3EFE6]/70 hover:bg-[#E5E0D5] hover:border-[#B45309]/50 transition-colors cursor-grab active:cursor-grabbing"
+                    >
+                      <div className="flex items-center justify-between w-full text-[#B45309]">
+                        <PenTool className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-xs font-semibold text-[#1C1917] whitespace-nowrap">
+                        写字三凸轮
+                      </span>
+                      <span className="text-[11px] text-[#57534E] leading-tight whitespace-nowrap">
+                        可编程轨迹·写1 2
+                      </span>
+                    </button>
                   </div>
 
                   {/* Mounted Modules Selector */}
@@ -424,7 +517,15 @@ export const BottomControlDock: React.FC<BottomControlDockProps> = ({
                                   ? '提示：半圆弧接触托盘时带动箭头步进，平切侧朝上时箭头精准停歇（可拖红圈调偏置）'
                                   : selectedModule.type === 'dual-eccentric'
                                     ? '提示：180°反相双偏心凸轮在单托盘下交替顶托并切换正反旋转方向'
-                                    : '提示：在3D场景中左右拖拽组件可沿主轴滑动装配'}
+                                    : selectedModule.type === 'scotch-yoke'
+                                      ? '提示：高位齿轮曲柄销驱动滑架沿双导轨纯简谐推拉；右侧可切换拉木锯/推刨/织梭/风箱/冰球'
+                                      : selectedModule.type === 'bell-crank'
+                                        ? '提示：垂直十字头经对称90° L形肘杆转为台面对称开合拨片；右侧可切换「双门打开 / 双人鼓掌」'
+                                        : selectedModule.type === 'digital-numbers'
+                                          ? '提示：主轴7枚编码凸轮经垂直推杆与舞台水平枢轴摇臂，依次翻折7段数码条循环显示 0–9'
+                                          : selectedModule.type === 'writing-cam'
+                                            ? '提示：主轴3枚编程轮廓凸轮分别编码笔尖 X/Y 轨迹与 Z 抬落笔，经滚子推杆与平行连杆臂在画板上写下「1 2」'
+                                            : '提示：在3D场景中左右拖拽组件可沿主轴滑动装配'}
                           </p>
                         </div>
 
@@ -604,8 +705,8 @@ export const BottomControlDock: React.FC<BottomControlDockProps> = ({
                               </span>
                               <input
                                 type="range"
-                                min={0.25}
-                                max={0.62}
+                                min={0.24}
+                                max={0.52}
                                 step={0.02}
                                 value={selectedModule.crankRadius}
                                 onChange={(e) =>
@@ -1189,6 +1290,270 @@ export const BottomControlDock: React.FC<BottomControlDockProps> = ({
                             </>
                           );
                         })()}
+
+                        {/* Scotch Yoke Horizontal SHM Shuttle Specific */}
+                        {selectedModule.type === 'scotch-yoke' && (
+                          <>
+                            <label className="flex flex-col gap-1">
+                              <span className="flex justify-between text-[#57534E]">
+                                <span>偏心半径 R</span>
+                                <span className="font-mono-tabular text-[#1C1917]">
+                                  {selectedModule.crankRadius.toFixed(2)}
+                                </span>
+                              </span>
+                              <input
+                                type="range"
+                                min={0.18}
+                                max={0.36}
+                                step={0.02}
+                                value={selectedModule.crankRadius}
+                                onChange={(e) =>
+                                  onUpdateModule(selectedModule.id, {
+                                    crankRadius: parseFloat(e.target.value),
+                                  })
+                                }
+                                className="studio-slider"
+                              />
+                            </label>
+
+                            <label className="flex flex-col gap-1">
+                              <span className="flex justify-between text-[#57534E]">
+                                <span>往复速比</span>
+                                <span className="font-mono-tabular text-[#1C1917]">
+                                  1 : {selectedModule.gearRatio.toFixed(2)}
+                                </span>
+                              </span>
+                              <input
+                                type="range"
+                                min={0.75}
+                                max={1.5}
+                                step={0.25}
+                                value={selectedModule.gearRatio}
+                                onChange={(e) =>
+                                  onUpdateModule(selectedModule.id, {
+                                    gearRatio: parseFloat(e.target.value),
+                                  })
+                                }
+                                className="studio-slider"
+                              />
+                            </label>
+                          </>
+                        )}
+
+                        {/* Twin 90-deg Bell-Crank Clamshell Specific */}
+                        {selectedModule.type === 'bell-crank' && (
+                          <>
+                            <label className="flex flex-col gap-1">
+                              <span className="flex justify-between text-[#57534E]">
+                                <span>开合行程</span>
+                                <span className="font-mono-tabular text-[#1C1917]">
+                                  {selectedModule.crankRadius.toFixed(2)}
+                                </span>
+                              </span>
+                              <input
+                                type="range"
+                                aria-label="肘杆开合行程"
+                                min={0.1}
+                                max={0.16}
+                                step={0.01}
+                                value={selectedModule.crankRadius}
+                                onChange={(e) =>
+                                  onUpdateModule(selectedModule.id, {
+                                    crankRadius: parseFloat(e.target.value),
+                                  })
+                                }
+                                className="studio-slider"
+                              />
+                            </label>
+
+                            <label className="flex flex-col gap-1">
+                              <span className="flex justify-between text-[#57534E]">
+                                <span>往复速比</span>
+                                <span className="font-mono-tabular text-[#1C1917]">
+                                  1 : {selectedModule.gearRatio.toFixed(2)}
+                                </span>
+                              </span>
+                              <input
+                                type="range"
+                                aria-label="肘杆往复速比"
+                                min={0.75}
+                                max={1.5}
+                                step={0.25}
+                                value={selectedModule.gearRatio}
+                                onChange={(e) =>
+                                  onUpdateModule(selectedModule.id, {
+                                    gearRatio: parseFloat(e.target.value),
+                                  })
+                                }
+                                className="studio-slider"
+                              />
+                            </label>
+                          </>
+                        )}
+
+                        {/* 7-Cam Digital Numbers Display Specific */}
+                        {selectedModule.type === 'digital-numbers' && (() => {
+                          const liveSol = solveDigitalNumbers(
+                            (manualAngleDeg * Math.PI) / 180,
+                            selectedModule
+                          );
+                          return (
+                            <>
+                              <label className="flex flex-col gap-1">
+                                <span className="flex justify-between text-[#57534E]">
+                                  <span>数字驻留比</span>
+                                  <span className="font-mono-tabular text-[#1C1917]">
+                                    {Math.round(selectedModule.dwellRatio * 100)}%
+                                  </span>
+                                </span>
+                                <input
+                                  type="range"
+                                  aria-label="数字驻留比"
+                                  min={0.4}
+                                  max={0.7}
+                                  step={0.05}
+                                  value={selectedModule.dwellRatio}
+                                  onChange={(e) =>
+                                    onUpdateModule(selectedModule.id, {
+                                      dwellRatio: parseFloat(e.target.value),
+                                    })
+                                  }
+                                  className="studio-slider"
+                                />
+                              </label>
+
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[#57534E]">计数方向</span>
+                                <div className="grid grid-cols-2 gap-1">
+                                  {(
+                                    [
+                                      { label: '0 → 9 顺数', val: 1 },
+                                      { label: '9 → 0 倒数', val: -1 },
+                                    ] as const
+                                  ).map((opt) => (
+                                    <button
+                                      key={opt.val}
+                                      type="button"
+                                      onClick={() =>
+                                        onUpdateModule(selectedModule.id, {
+                                          countDirection: opt.val,
+                                        })
+                                      }
+                                      className={`px-2 py-1 text-xs rounded-md border cursor-pointer whitespace-nowrap ${
+                                        selectedModule.countDirection === opt.val
+                                          ? 'bg-[#1C1917] text-[#FAF8F4] border-[#1C1917]'
+                                          : 'bg-[#F3EFE6] text-[#1C1917] border-[#1C1917]/12 hover:bg-[#E5E0D5]'
+                                      }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col gap-1 col-span-2 sm:col-span-3 pt-1 border-t border-[#1C1917]/10">
+                                <div className="flex items-center justify-between text-[#57534E]">
+                                  <span>
+                                    当前示数：
+                                    <strong className="font-mono-tabular text-[#1C1917] ml-1">
+                                      {liveSol.activeDigit}
+                                    </strong>
+                                    {liveSol.isTransitioning ? '（翻折切换中）' : '（稳定停驻）'}
+                                  </span>
+                                  <span className="font-mono-tabular text-[11px] text-[#57534E]">
+                                    {liveSol.segments
+                                      .map((seg) => `${seg.segmentId}:${seg.on01 > 0.5 ? '1' : '0'}`)
+                                      .join(' ')}
+                                  </span>
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
+
+                        {/* 3-Cam Programmable Writing Automaton Specific */}
+                        {selectedModule.type === 'writing-cam' && (() => {
+                          const liveSol = solveWritingCam(
+                            (manualAngleDeg * Math.PI) / 180,
+                            selectedModule
+                          );
+                          const stateLabel =
+                            liveSol.strokeState === 'writing-1'
+                              ? '落笔书写「1」'
+                              : liveSol.strokeState === 'pen-lift-jump'
+                                ? '抬笔换位（1 → 2）'
+                                : liveSol.strokeState === 'writing-2'
+                                  ? '落笔书写「2」'
+                                  : '抬笔复位';
+                          return (
+                            <>
+                              <div className="flex flex-col gap-1 col-span-2 sm:col-span-2">
+                                <span className="text-[#57534E]">凸轮轨迹程序（Cams as Code）</span>
+                                <div className="grid grid-cols-3 gap-1">
+                                  {(
+                                    [
+                                      { label: '书写「1 2」', val: '12' as WritingDigitPattern },
+                                      { label: '单写「1」', val: '1' as WritingDigitPattern },
+                                      { label: '单写「2」', val: '2' as WritingDigitPattern },
+                                    ] as const
+                                  ).map((opt) => (
+                                    <button
+                                      key={opt.val}
+                                      type="button"
+                                      onClick={() =>
+                                        onUpdateModule(selectedModule.id, {
+                                          digitPattern: opt.val,
+                                        })
+                                      }
+                                      className={`px-2 py-1 text-xs rounded-md border cursor-pointer whitespace-nowrap ${
+                                        selectedModule.digitPattern === opt.val
+                                          ? 'bg-[#1C1917] text-[#FAF8F4] border-[#1C1917]'
+                                          : 'bg-[#F3EFE6] text-[#1C1917] border-[#1C1917]/12 hover:bg-[#E5E0D5]'
+                                      }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <label className="flex flex-col gap-1">
+                                <span className="flex justify-between text-[#57534E]">
+                                  <span>字幅缩放</span>
+                                  <span className="font-mono-tabular text-[#1C1917]">
+                                    {Math.round(selectedModule.strokeScale * 100)}%
+                                  </span>
+                                </span>
+                                <input
+                                  type="range"
+                                  aria-label="字幅缩放"
+                                  min={0.75}
+                                  max={1.15}
+                                  step={0.05}
+                                  value={selectedModule.strokeScale}
+                                  onChange={(e) =>
+                                    onUpdateModule(selectedModule.id, {
+                                      strokeScale: parseFloat(e.target.value),
+                                    })
+                                  }
+                                  className="studio-slider"
+                                />
+                              </label>
+
+                              <div className="flex flex-col gap-1 col-span-2 sm:col-span-3 pt-1 border-t border-[#1C1917]/10">
+                                <div className="flex items-center justify-between text-[#57534E]">
+                                  <span>
+                                    书写状态：
+                                    <strong className="text-[#1C1917] ml-1">{stateLabel}</strong>
+                                  </span>
+                                  <span className="font-mono-tabular text-[11px] text-[#57534E]">
+                                    X:{liveSol.paperU.toFixed(2)} Y:{liveSol.paperV.toFixed(2)} 抬笔:{Math.round(liveSol.penLift01 * 100)}%
+                                  </span>
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   ) : (
@@ -1212,6 +1577,7 @@ export const BottomControlDock: React.FC<BottomControlDockProps> = ({
                   </div>
                   <input
                     type="range"
+                    aria-label="曲柄转速"
                     min={6}
                     max={60}
                     step={2}
@@ -1235,6 +1601,7 @@ export const BottomControlDock: React.FC<BottomControlDockProps> = ({
                   </div>
                   <input
                     type="range"
+                    aria-label="手动摇柄角度"
                     min={0}
                     max={359}
                     step={1}
@@ -1256,6 +1623,7 @@ export const BottomControlDock: React.FC<BottomControlDockProps> = ({
                   </div>
                   <input
                     type="range"
+                    aria-label="透明橱窗剖视"
                     min={0}
                     max={1}
                     step={0.05}
@@ -1271,6 +1639,7 @@ export const BottomControlDock: React.FC<BottomControlDockProps> = ({
                   </div>
                   <input
                     type="range"
+                    aria-label="箱体爆炸分解"
                     min={0}
                     max={1}
                     step={0.05}

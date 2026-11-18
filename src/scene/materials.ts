@@ -14,6 +14,9 @@ export interface AutomataMaterialSet {
   cutawayGlass: THREE.MeshPhysicalMaterial;
   selectionHighlight: THREE.MeshStandardMaterial;
   pegHoleDark: THREE.MeshStandardMaterial;
+  digitalGreen: THREE.MeshStandardMaterial;
+  digitalEdgeDark: THREE.MeshStandardMaterial;
+  writingInk: THREE.MeshStandardMaterial;
   applyFinish: (finish: MaterialFinishId) => void;
   setCutawayOpacity: (cutawayAmount: number) => void;
   dispose: () => void;
@@ -109,6 +112,24 @@ export function createAutomataMaterials(
     metalness: 0.05,
   });
 
+  const digitalGreen = new THREE.MeshStandardMaterial({
+    color: 0x34d058,
+    roughness: 0.44,
+    metalness: 0.02,
+  });
+
+  const digitalEdgeDark = new THREE.MeshStandardMaterial({
+    color: 0x111827,
+    roughness: 0.62,
+    metalness: 0.08,
+  });
+
+  const writingInk = new THREE.MeshStandardMaterial({
+    color: 0x1e3a8a,
+    roughness: 0.42,
+    metalness: 0.02,
+  });
+
   function applyFinish(finish: MaterialFinishId) {
     if (finish === 'beech-brass') {
       woodPrimary.map = textures.beechMap;
@@ -166,6 +187,9 @@ export function createAutomataMaterials(
     cutawayGlass,
     selectionHighlight,
     pegHoleDark,
+    digitalGreen,
+    digitalEdgeDark,
+    writingInk,
     applyFinish,
     setCutawayOpacity,
     dispose: () => {
@@ -180,6 +204,9 @@ export function createAutomataMaterials(
       cutawayGlass.dispose();
       selectionHighlight.dispose();
       pegHoleDark.dispose();
+      digitalGreen.dispose();
+      digitalEdgeDark.dispose();
+      writingInk.dispose();
     },
   };
 }

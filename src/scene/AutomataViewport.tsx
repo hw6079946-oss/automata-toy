@@ -20,14 +20,18 @@ import type {
 import { createAutomataMaterials } from './materials';
 import {
   buildAutomataBoxGroup,
+  buildBellCrankModuleRig,
   buildBevelGearModuleRig,
   buildCamModuleRig,
   buildCircularCamModuleRig,
+  buildDigitalNumbersModuleRig,
   buildDualEccentricModuleRig,
   buildFourBarModuleRig,
   buildPinLanternModuleRig,
   buildRatchetModuleRig,
+  buildScotchYokeModuleRig,
   buildSemiCircularCamModuleRig,
+  buildWritingCamModuleRig,
   type AutomataBoxRig,
   type ModuleRig,
 } from './meshBuilders';
@@ -57,7 +61,7 @@ const CAMERA_PRESETS: Record<
 > = {
   'three-quarter': { pos: [5.5, 4.9, 9.8], target: [0, 1.55, 0] },
   front: { pos: [0, 2.4, 10.6], target: [0, 1.55, 0] },
-  side: { pos: [9.4, 2.7, 0.3], target: [0, 1.55, 0] },
+  side: { pos: [10.6, 3.0, 0.4], target: [0, 1.85, 0] },
   top: { pos: [0.1, 8.8, 3.8], target: [0, 2.4, 0] },
 };
 
@@ -334,6 +338,14 @@ export const AutomataViewport: React.FC<AutomataViewportProps> = ({
           rig = buildRatchetModuleRig(mod, bp, mats);
         } else if (mod.type === 'dual-eccentric') {
           rig = buildDualEccentricModuleRig(mod, bp, mats);
+        } else if (mod.type === 'scotch-yoke') {
+          rig = buildScotchYokeModuleRig(mod, bp, mats);
+        } else if (mod.type === 'bell-crank') {
+          rig = buildBellCrankModuleRig(mod, bp, mats);
+        } else if (mod.type === 'digital-numbers') {
+          rig = buildDigitalNumbersModuleRig(mod, bp, mats);
+        } else if (mod.type === 'writing-cam') {
+          rig = buildWritingCamModuleRig(mod, bp, mats);
         } else if (mod.type === 'semi-circular-cam') {
           const modId = mod.id;
           rig = buildSemiCircularCamModuleRig(mod, bp, mats, (shaftAng, curMod) => {
@@ -844,7 +856,11 @@ export const AutomataViewport: React.FC<AutomataViewportProps> = ({
       rawType === 'ratchet' ||
       rawType === 'circular-cam' ||
       rawType === 'dual-eccentric' ||
-      rawType === 'semi-circular-cam'
+      rawType === 'semi-circular-cam' ||
+      rawType === 'scotch-yoke' ||
+      rawType === 'bell-crank' ||
+      rawType === 'digital-numbers' ||
+      rawType === 'writing-cam'
     ) {
       const slotX = computeDropSlotX(e.clientX);
       onDropNewModule(rawType, slotX);

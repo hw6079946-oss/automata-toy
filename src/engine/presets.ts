@@ -176,6 +176,139 @@ export const CLASSIC_PRESETS: AutomataBlueprint[] = [
       },
     ],
   },
+  {
+    id: 'harada-duck-egg',
+    name: '原田和明 · 鸭子下蛋 (Decoy)',
+    styleCredit: 'Kazuaki Harada Style · Egg-Laying Duck "DECOY"',
+    description:
+      '致敬日本木偶大师原田和明名作《Decoy》：半周蓄势静卧后凸轮推杆升起，令鸭子翘尾打开腹门、将象牙色木蛋沿木槽滚入胡桃木草窝，随后展翅昂首张喙嘎叫报喜，再复位闭合腹门。',
+    boxWidth: 7.4,
+    boxHeight: 3.52,
+    boxDepth: 3.1,
+    shaftY: 1.65,
+    stageDeckY: 3.82,
+    finish: 'folk-painted',
+    modules: [
+      {
+        id: 'mod-harada-duck-pear',
+        type: 'cam-follower',
+        label: '蛋形凸轮 · 鸭子下蛋',
+        slotX: 0,
+        phaseDeg: 180,
+        camType: 'pear',
+        baseRadius: 0.5,
+        lift: 0.56,
+        footRadius: 0.3,
+        topper: 'duck-egg',
+        topperScale: 1.12,
+      },
+    ],
+  },
+  {
+    id: 'folk-rattle-drum',
+    name: '偏心双凸轮 · 拨浪鼓',
+    styleCredit: 'Twin Eccentric Alternating Cams · Chinese Pellet Drum',
+    description:
+      '主轴一对相位差180°的偏心圆盘交替顶升同一水平摩擦圆盘，实现平滑的正反往复扭摆（伴随微幅上下起伏），带动舞台上方传统红漆拨浪鼓左右急甩，双侧鼓珠凭惯性交替击打正反羊皮鼓面。',
+    boxWidth: 6.4,
+    boxHeight: 3.4,
+    boxDepth: 3.0,
+    shaftY: 1.65,
+    stageDeckY: 3.7,
+    finish: 'folk-painted',
+    modules: [
+      {
+        id: 'mod-rattle-drum-dual',
+        type: 'dual-eccentric',
+        label: '偏心双凸轮 · 拨浪鼓',
+        slotX: 0,
+        phaseDeg: 0,
+        gearRatio: 0.72,
+        camRadius: 0.35,
+        eccentricity: 0.1,
+        topper: 'rattle-drum',
+        topperScale: 1.32,
+      },
+    ],
+  },
+  {
+    id: 'folk-donkey-mill',
+    name: '90°钉轮 · 毛驴拉磨',
+    styleCredit: 'Pin-Lantern Gear & Traditional Folk Donkey Mill',
+    description:
+      '古朴民间石磨场景：90度冠形木盘带动开放式灯笼针轮（90°钉轮），驱动垂直主轴带动上磨盘与牵引木杠旋转，蒙眼小毛驴迈着四蹄欢快拉磨，磨槽出粉口缓缓落下面粉，再现中国传统农耕机巧。',
+    boxWidth: 7.4,
+    boxHeight: 3.52,
+    boxDepth: 3.1,
+    shaftY: 1.65,
+    stageDeckY: 3.82,
+    finish: 'folk-painted',
+    modules: [
+      {
+        id: 'mod-donkey-mill-pin-lantern',
+        type: 'pin-lantern',
+        label: '90°钉轮 · 毛驴拉磨',
+        slotX: 0,
+        phaseDeg: 0,
+        gearRatio: 1.0,
+        pegCount: 12,
+        topper: 'donkey-mill',
+        topperScale: 1.38,
+      },
+    ],
+  },
+  {
+    id: 'yh246801-digital-numbers',
+    name: '七凸轮 · 机械数字显示器',
+    styleCredit: 'Digital Numbers (yh246801) · 7-Cam Mechanical 7-Segment Counter',
+    description:
+      '复刻经典7凸轮机械数字机构：主轴同轴装配7枚精密编码黄铜凸轮，经垂直推杆与舞台水平枢轴摇臂连杆，独立驱动7条弯折钢丝将绿色斜角七段数码管逐位翻转（0–9循环），停显段向后平折90°隐入水平面。',
+    boxWidth: 7.4,
+    boxHeight: 3.52,
+    boxDepth: 3.1,
+    shaftY: 1.65,
+    stageDeckY: 3.82,
+    finish: 'beech-brass',
+    modules: [
+      {
+        id: 'mod-digital-numbers-bank',
+        type: 'digital-numbers',
+        label: '七凸轮 · 机械数字机构',
+        slotX: 0,
+        phaseDeg: 0,
+        dwellRatio: 0.55,
+        countDirection: 1,
+        topper: 'digital-display',
+        topperScale: 1.0,
+      },
+    ],
+  },
+  {
+    id: 'waseda-writing-12',
+    name: '三凸轮 · 写字机械臂「1 2」',
+    styleCredit: 'Programmable Drawing Automata (PDA-0) · Cams as Code',
+    description:
+      '复刻经典可编程三凸轮写字自动机：主轴同轴装配 X（左右）、Y（上下）、Z（抬落笔）三枚编程轮廓凸轮，经滚子推杆、双直角摇臂与平行连杆机械臂，在倾斜画板上依次精准书写数字「1」与「2」并完成抬笔换位与复位。',
+    boxWidth: 7.4,
+    boxHeight: 3.52,
+    boxDepth: 3.1,
+    shaftY: 1.65,
+    stageDeckY: 3.82,
+    finish: 'beech-brass',
+    modules: [
+      {
+        id: 'mod-writing-12-bank',
+        type: 'writing-cam',
+        label: '三凸轮 · 写字机构「1 2」',
+        slotX: 0,
+        phaseDeg: 0,
+        digitPattern: '12',
+        strokeScale: 1.0,
+        topper: 'writing-arm',
+        topperScale: 1.0,
+      },
+    ],
+  },
 ];
 
 export const EMPTY_FRAME_BLUEPRINT: AutomataBlueprint = {
@@ -300,6 +433,54 @@ export function createDefaultModule(type: ModuleType, slotX: number, indexSeed: 
         driverRadius: 0.38,
         camOffsetRatio: -1,
         topper: 'arrow',
+        topperScale: 1.0,
+      };
+    case 'scotch-yoke':
+      return {
+        id,
+        type: 'scotch-yoke',
+        label: `苏格兰轭滑槽 · 双人拉锯 #${indexSeed}`,
+        slotX,
+        phaseDeg: 0,
+        crankRadius: 0.28,
+        gearRatio: 1.0,
+        topper: 'sawyers',
+        topperScale: 1.0,
+      };
+    case 'bell-crank':
+      return {
+        id,
+        type: 'bell-crank',
+        label: `90°肘杆开合 · 双门打开 #${indexSeed}`,
+        slotX,
+        phaseDeg: 0,
+        crankRadius: 0.15,
+        gearRatio: 1.0,
+        topper: 'double-doors',
+        topperScale: 1.0,
+      };
+    case 'digital-numbers':
+      return {
+        id,
+        type: 'digital-numbers',
+        label: `七凸轮 · 数字显示器 #${indexSeed}`,
+        slotX: Math.max(-1.85, Math.min(1.85, slotX)),
+        phaseDeg: 0,
+        dwellRatio: 0.55,
+        countDirection: 1,
+        topper: 'digital-display',
+        topperScale: 1.0,
+      };
+    case 'writing-cam':
+      return {
+        id,
+        type: 'writing-cam',
+        label: `三凸轮 · 写字机械臂 #${indexSeed}`,
+        slotX: Math.max(-1.85, Math.min(1.85, slotX)),
+        phaseDeg: 0,
+        digitPattern: '12',
+        strokeScale: 1.0,
+        topper: 'writing-arm',
         topperScale: 1.0,
       };
   }

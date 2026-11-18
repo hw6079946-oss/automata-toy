@@ -25,16 +25,50 @@ import {
   solveFourBarPushrod,
   solvePinLantern,
   solvePinLanternGeometry,
+  BELLOWS_KINEMATICS,
+  BELL_CRANK_KINEMATICS,
+  CARPENTER_KINEMATICS,
+  CLAPPING_KINEMATICS,
+  DIGITAL_NUMBERS_KINEMATICS,
+  DIGITAL_SEGMENT_PATTERNS,
+  DONKEY_MILL_KINEMATICS,
+  DOUBLE_DOORS_KINEMATICS,
+  DUCK_EGG_KINEMATICS,
+  evaluateDigitalNumbersCamRadius,
+  HOCKEY_KINEMATICS,
+  LOOM_KINEMATICS,
+  RATTLE_DRUM_KINEMATICS,
+  SAWYERS_KINEMATICS,
+  SCOTCH_YOKE_CENTER_DIST,
+  solveBellCrank,
+  solveBellCrankGeometry,
+  solveDigitalNumbers,
   solveRatchet,
   solveRatchetGeometry,
+  solveScotchYoke,
+  solveScotchYokeGeometry,
   solveSemiCircularCam,
   solveSemiCircularCamGeometry,
+  solveTopperBellowsLinkage,
   solveTopperBoatmanLinkage,
+  solveTopperCarpenterLinkage,
+  solveTopperClappingLinkage,
+  solveTopperDonkeyMill,
+  solveTopperDoubleDoorsLinkage,
+  solveTopperDuckEggLinkage,
+  solveTopperHockeyLinkage,
+  solveTopperLoomLinkage,
+  solveTopperRattleDrum,
+  solveTopperSawyersLinkage,
   solveTopperSeagullLinkage,
   solveTopperWoodpeckerLinkage,
+  WRITING_CAM_KINEMATICS,
+  evaluateWritingTrajectory,
+  sampleWritingCamContours,
+  solveWritingCam,
 } from './kinematics';
 import { CLASSIC_PRESETS, createDefaultModule } from './presets';
-import type { CamProfileType, RatchetModule } from './types';
+import type { CamProfileType, RatchetModule, WritingDigitPattern } from './types';
 
 test('cam contour evaluation produces positive finite radii across all profiles', () => {
   const profiles: CamProfileType[] = ['eccentric', 'pear', 'snail', 'heart'];
@@ -165,6 +199,113 @@ test('4-bar linkage handles over-stretched geometry gracefully without NaN', () 
   assert.equal(sol.isOverStretched, true);
   assert.equal(Number.isFinite(sol.couplerJoint.z), true);
   assert.equal(Number.isFinite(sol.couplerJoint.y), true);
+});
+
+function segDistToOrigin(az: number, ay: number, bz: number, by: number): number {
+  const dz = bz - az;
+  const dy = by - ay;
+  const lenSq = dz * dz + dy * dy;
+  if (lenSq < 1e-12) return Math.hypot(az, ay);
+  const t = Math.max(0, Math.min(1, -(az * dz + ay * dy) / lenSq));
+  return Math.hypot(az + t * dz, ay + t * dy);
+}
+
+test('4-bar offset-gear linkage maintains zero camshaft collision and stays inside box bounds across 360 deg', () => {
+  const SHAFT_RADIUS = 0.085;
+  const BAR_HALF_WIDTH = 0.082; // width 0.14 + 2*0.012 bevel = 0.164 -> half = 0.082
+  const MIN_CLEARANCE = SHAFT_RADIUS + BAR_HALF_WIDTH + 0.04; // >= 0.207
+
+  const cases: Array<{
+    name: string;
+    phaseDeg: number;
+    crankRadius: number;
+    couplerLength: number;
+    rockerLength: number;
+    pivotZ: number;
+    pivotY: number;
+    outputArmRatio: number;
+  }> = [];
+
+  for (const preset of CLASSIC_PRESETS) {
+    for (const mod of preset.modules) {
+      if (mod.type === 'four-bar-linkage') {
+        cases.push({ name: `${preset.id}:${mod.id}`, ...mod });
+      }
+    }
+  }
+  const defMod = createDefaultModule('four-bar-linkage', 0, 1);
+  if (defMod.type === 'four-bar-linkage') {
+    cases.push({ name: 'default-4bar', ...defMod });
+    // Mirror negative-Z dragged pivot and corner extremes
+    for (const [pz, py] of [
+      [-0.92, 1.15],
+      [0.55, 0.65],
+      [0.55, 1.3],
+      [1.2, 0.65],
+      [1.2, 1.3],
+    ]) {
+      const clamped = clampFourBarPivot(pz, py);
+      cases.push({
+        name: `pivot(${clamped.pivotZ},${clamped.pivotY})`,
+        ...defMod,
+        ...clamped,
+      });
+    }
+  }
+
+  for (const c of cases) {
+    const pushCfg = computeFourBarPushrodConfig(c);
+    for (let deg = 0; deg < 360; deg += 5) {
+      const theta = (deg * Math.PI) / 180;
+      const sol = solveFourBarLinkage(theta, c);
+      const pushSol = solveFourBarPushrod(theta, c, pushCfg, sol);
+
+      const pinDist = Math.hypot(sol.crankPin.z, sol.crankPin.y);
+      const couplerDist = segDistToOrigin(
+        sol.crankPin.z,
+        sol.crankPin.y,
+        sol.couplerJoint.z,
+        sol.couplerJoint.y
+      );
+      const rockerDist = segDistToOrigin(
+        sol.fulcrum.z,
+        sol.fulcrum.y,
+        sol.couplerJoint.z,
+        sol.couplerJoint.y
+      );
+      const pitmanDist = segDistToOrigin(
+        pushSol.clevisZ,
+        pushSol.clevisY,
+        pushCfg.outputStageZ,
+        pushSol.pushrodBottomY
+      );
+
+      assert.ok(
+        pinDist >= MIN_CLEARANCE,
+        `${c.name} crankPin collided with shaft at ${deg} deg (dist=${pinDist.toFixed(3)})`
+      );
+      assert.ok(
+        couplerDist >= MIN_CLEARANCE,
+        `${c.name} coupler collided with shaft at ${deg} deg (dist=${couplerDist.toFixed(3)})`
+      );
+      assert.ok(
+        rockerDist >= MIN_CLEARANCE,
+        `${c.name} rocker collided with shaft at ${deg} deg (dist=${rockerDist.toFixed(3)})`
+      );
+      assert.ok(
+        pitmanDist >= MIN_CLEARANCE,
+        `${c.name} pitman collided with shaft at ${deg} deg (dist=${pitmanDist.toFixed(3)})`
+      );
+      assert.ok(
+        Math.abs(sol.crankPin.z) <= 1.32 && Math.abs(sol.couplerJoint.z) <= 1.32,
+        `${c.name} exceeded glass depth at ${deg} deg`
+      );
+      assert.ok(
+        pushSol.pushrodBottomY <= 1.92,
+        `${c.name} pushrod bottom exceeded stage deck underside at ${deg} deg (${pushSol.pushrodBottomY})`
+      );
+    }
+  }
 });
 
 test('bevel gear ratio and cone geometry remain bounded and non-overlapping across ratios', () => {
@@ -682,3 +823,780 @@ test('semi-circular-cam drives intermittent half-cycle steps with rock-solid dwe
   assert.ok(curve[18] > 0.45 && curve[18] < 0.55);
   assert.ok(curve[54] === 1, 'Second half of cycle must dwell at plateau 1.0');
 });
+
+test('scotch-yoke produces pure SHM horizontal shuttle motion with zero camshaft collision', () => {
+  const shaftRadius = 0.085;
+  for (const crankRadius of [0.18, 0.28, 0.36]) {
+    for (const gearRatio of [0.75, 1.0, 1.25, 1.5]) {
+      const geo = solveScotchYokeGeometry(crankRadius, gearRatio);
+      assert.ok(
+        Math.abs(geo.driverPitchR + geo.drivenPitchR - SCOTCH_YOKE_CENTER_DIST) < 1e-9,
+        'Spur gear pitch radii must sum strictly to center distance'
+      );
+
+      const yokeLowestY = geo.crankCenter.y - geo.slotHalfHeight - 0.055;
+      assert.ok(
+        yokeLowestY - shaftRadius >= 0.2,
+        `Lowest yoke frame Y (${yokeLowestY}) must clear main shaft (${shaftRadius}) by >= 0.20`
+      );
+
+      for (let deg = 0; deg < 720; deg += 5) {
+        const theta = (deg * Math.PI) / 180;
+        const sol = solveScotchYoke(theta, { phaseDeg: 0, crankRadius, gearRatio });
+        assert.ok(Number.isFinite(sol.sliderZ) && Number.isFinite(sol.slotBlockY));
+        assert.ok(
+          Math.abs(sol.sliderZ - crankRadius * Math.cos(sol.crankAngleRad)) < 1e-9,
+          'Horizontal slider must follow pure cosine SHM'
+        );
+        assert.ok(
+          Math.abs(sol.slotBlockY - sol.crankCenter.y) <= sol.slotHalfHeight - 0.05,
+          'Sliding bronze block must stay cleanly inside vertical yoke slot'
+        );
+        assert.ok(sol.normalizedSlide >= 0 && sol.normalizedSlide <= 1);
+      }
+    }
+  }
+
+  const defScotch = createDefaultModule('scotch-yoke', 0, 1);
+  assert.equal(defScotch.type, 'scotch-yoke');
+  assert.equal(defScotch.topper, 'sawyers');
+  const curve = sampleCycleCurve(defScotch, 72);
+  assert.equal(curve.length, 72);
+  assert.ok(Math.abs(curve[0] - 1) < 1e-6);
+  assert.ok(Math.abs(curve[18] - 0.5) < 1e-6);
+  assert.ok(Math.abs(curve[36] - 0) < 1e-6);
+});
+
+test('sawyers two-man crosscut linkage preserves exact upperArm and forearm lengths across full stroke', () => {
+  const K = SAWYERS_KINEMATICS;
+  for (let sz = -0.36; sz <= 0.361; sz += 0.02) {
+    const sol = solveTopperSawyersLinkage(sz);
+    assert.ok(Math.abs(sol.sliderZ - sz) < 1e-9);
+    for (const branch of [sol.rear, sol.front]) {
+      const dUpper = Math.hypot(branch.elbowZ - branch.shoulderZ, branch.elbowY - branch.shoulderY);
+      const dFore = Math.hypot(branch.handleZ - branch.elbowZ, branch.handleY - branch.elbowY);
+      assert.ok(
+        Math.abs(dUpper - K.upperArmLen) < 1e-4,
+        `Upper arm length ${dUpper} drifted from ${K.upperArmLen} at sliderZ=${sz}`
+      );
+      assert.ok(
+        Math.abs(dFore - K.forearmLen) < 1e-4,
+        `Forearm length ${dFore} drifted from ${K.forearmLen} at sliderZ=${sz}`
+      );
+      assert.ok(
+        Math.abs(branch.handleZ) >= 0.155,
+        `Saw handle post at ${branch.handleZ} must always clear central log radius 0.13`
+      );
+    }
+  }
+});
+
+test('carpenter, loom, and bellows horizontal SHM toppers preserve rigid kinematics and bounds', () => {
+  const CK = CARPENTER_KINEMATICS;
+  const LK = LOOM_KINEMATICS;
+  const BK = BELLOWS_KINEMATICS;
+
+  for (let deg = 0; deg < 360; deg += 10) {
+    const ang = (deg * Math.PI) / 180;
+    const sz = 0.36 * Math.cos(ang);
+
+    // Carpenter 2-link arm IK check
+    const carp = solveTopperCarpenterLinkage(sz, ang);
+    const dUpper = Math.hypot(carp.arm.elbowZ - carp.arm.shoulderZ, carp.arm.elbowY - carp.arm.shoulderY);
+    const dFore = Math.hypot(carp.arm.handleZ - carp.arm.elbowZ, carp.arm.handleY - carp.arm.elbowY);
+    assert.ok(Math.abs(dUpper - CK.upperArmLen) < 1e-4, `Carpenter upper arm drifted: ${dUpper}`);
+    assert.ok(Math.abs(dFore - CK.forearmLen) < 1e-4, `Carpenter forearm drifted: ${dFore}`);
+    assert.ok(Number.isFinite(carp.shavingCurlAngle) && carp.shavingCurlAngle > 0);
+
+    // Loom symmetric heddle shed & picker kick check
+    const loom = solveTopperLoomLinkage(sz, ang);
+    assert.ok(Math.abs(loom.heddleAOffsetY + loom.heddleBOffsetY) < 1e-9);
+    assert.ok(Math.abs(loom.heddleAOffsetY) <= LK.heddleMaxOffset + 1e-9);
+    assert.ok(loom.rearPickerAngleRad <= 0 && loom.frontPickerAngleRad >= 0);
+
+    // Bellows strictly ordered non-inverting pleat compression check
+    const bel = solveTopperBellowsLinkage(sz);
+    assert.ok(bel.gap >= 0.1, `Bellows minimum clearance gap violated: ${bel.gap}`);
+    assert.equal(bel.pleatZs.length, BK.pleatCount);
+    let prevZ = bel.rearBoardZ;
+    for (const pz of bel.pleatZs) {
+      assert.ok(pz > prevZ, 'Bellows pleats must stay strictly monotonic from rear to front');
+      prevZ = pz;
+    }
+    assert.ok(BK.frontHeaderZ > prevZ);
+    assert.ok(bel.emberGlow01 >= 0 && bel.emberGlow01 <= 1);
+  }
+});
+
+test('hockey tabletop duel closed-chain cam-rocker linkage preserves all link lengths and clears puck & ice', () => {
+  const HK = HOCKEY_KINEMATICS;
+  const minCenterDist = HK.puckRadius + HK.bladeHalfThick;
+
+  for (const crankR of [0.18, 0.28, 0.36]) {
+    for (let deg = 0; deg < 360; deg += 10) {
+      const ang = (deg * Math.PI) / 180;
+      const sz = crankR * Math.cos(ang);
+      const sol = solveTopperHockeyLinkage(sz);
+
+      assert.ok(
+        sol.puckZ - sol.rear.bladeZ >= minCenterDist - 1e-9,
+        `Rear hockey blade (${sol.rear.bladeZ}) penetrated puck (${sol.puckZ})`
+      );
+      assert.ok(
+        sol.front.bladeZ - sol.puckZ >= minCenterDist - 1e-9,
+        `Front hockey blade (${sol.front.bladeZ}) penetrated puck (${sol.puckZ})`
+      );
+
+      for (const player of [sol.rear, sol.front]) {
+        const dRoller = Math.hypot(
+          player.rollerZ - player.rockerPivotZ,
+          player.rollerY - player.rockerPivotY
+        );
+        const dMid = Math.hypot(
+          player.midPinZ - player.rockerPivotZ,
+          player.midPinY - player.rockerPivotY
+        );
+        const dOuter = Math.hypot(
+          player.outerPinZ - player.rockerPivotZ,
+          player.outerPinY - player.rockerPivotY
+        );
+        const dTorsoRod = Math.hypot(
+          player.waistPinZ - player.midPinZ,
+          player.waistPinY - player.midPinY
+        );
+        const dVertRod = Math.hypot(
+          player.hornPinZ - player.outerPinZ,
+          player.hornPinY - player.outerPinY
+        );
+        const dWaistHorn = Math.hypot(
+          player.waistPinZ - player.arm.hipZ,
+          player.waistPinY - player.arm.hipY
+        );
+        const dStickHorn = Math.hypot(
+          player.hornPinZ - player.gripZ,
+          player.hornPinY - player.gripY
+        );
+        const dBlade = Math.hypot(player.bladeZ - player.gripZ, player.bladeY - player.gripY);
+        const dUpper = Math.hypot(
+          player.arm.elbowZ - player.arm.shoulderZ,
+          player.arm.elbowY - player.arm.shoulderY
+        );
+        const dFore = Math.hypot(
+          player.arm.handleZ - player.arm.elbowZ,
+          player.arm.handleY - player.arm.elbowY
+        );
+
+        assert.ok(Math.abs(dRoller - HK.rollerArmLen) < 1e-6);
+        assert.ok(Math.abs(dMid - HK.midArmLen) < 1e-6);
+        assert.ok(Math.abs(dOuter - HK.outerArmLen) < 1e-6);
+        assert.ok(Math.abs(dTorsoRod - player.torsoRodLen) < 1e-6);
+        assert.ok(Math.abs(dVertRod - player.vertRodLen) < 1e-6);
+        assert.ok(Math.abs(dWaistHorn - HK.waistHornR) < 1e-6);
+        assert.ok(Math.abs(dStickHorn - HK.stickHornR) < 1e-6);
+        assert.ok(Math.abs(dBlade - HK.bladeLen) < 1e-6);
+        assert.ok(Math.abs(dUpper - HK.upperArmLen) < 1e-4);
+        assert.ok(Math.abs(dFore - HK.forearmLen) < 1e-4);
+        assert.ok(
+          player.bladeY - 0.018 >= HK.iceTopY,
+          `Stick blade bottom (${player.bladeY - 0.018}) clipped ice surface (${HK.iceTopY})`
+        );
+      }
+    }
+  }
+});
+
+test('bell-crank twin 90-deg clamshell preserves rigid L-arms, gear clearance, and symmetric deck opening', () => {
+  const K = BELL_CRANK_KINEMATICS;
+  for (const crankRadius of [0.1, 0.13, 0.16]) {
+    for (const gearRatio of [0.75, 1.0, 1.25, 1.5]) {
+      const geo = solveBellCrankGeometry(crankRadius, gearRatio);
+      assert.ok(
+        Math.abs(geo.driverPitchR + geo.drivenPitchR - K.centerDist) < 1e-9,
+        'Gear pitch radii must sum strictly to centerDist'
+      );
+
+      const drivenOuterR = geo.drivenPitchR + (2 * geo.drivenPitchR) / geo.drivenTeeth * 0.68;
+      const minCrossheadBottomY = K.centerDist - crankRadius + K.pitmanLen - 0.034;
+      assert.ok(
+        minCrossheadBottomY > K.centerDist + drivenOuterR + 0.02,
+        `Lowest crosshead (${minCrossheadBottomY}) must clear driven gear teeth (${K.centerDist + drivenOuterR})`
+      );
+
+      for (let deg = 0; deg < 720; deg += 5) {
+        const theta = (deg * Math.PI) / 180;
+        const sol = solveBellCrank(theta, { phaseDeg: 0, crankRadius, gearRatio });
+        assert.ok(sol.open01 >= 0 && sol.open01 <= 1);
+        assert.ok(sol.sliderX >= K.sliderMinBoundX && sol.sliderX <= K.sliderMaxBoundX);
+
+        const dPitman = Math.hypot(sol.crossheadY - sol.crankPin.y, sol.crankPin.z);
+        const dInArmL = Math.hypot(sol.leftInPin.x - sol.leftFulcrum.x, sol.leftInPin.y - sol.leftFulcrum.y);
+        const dOutArmL = Math.hypot(sol.leftOutPin.x - sol.leftFulcrum.x, sol.leftOutPin.y - sol.leftFulcrum.y);
+        const dCouplerL = Math.hypot(sol.leftInPin.x - -K.crossheadEarX, sol.leftInPin.y - sol.crossheadY);
+        const dTopLinkL = Math.hypot(-sol.sliderX - sol.leftOutPin.x, K.deckRailY - sol.leftOutPin.y);
+
+        assert.ok(Math.abs(dPitman - K.pitmanLen) < 1e-6);
+        assert.ok(Math.abs(dInArmL - K.inArmLen) < 1e-6);
+        assert.ok(Math.abs(dOutArmL - K.outArmLen) < 1e-6);
+        assert.ok(Math.abs(dCouplerL - K.couplerLen) < 1e-6);
+        assert.ok(Math.abs(dTopLinkL - K.topLinkLen) < 1e-6);
+
+        // Verify exact 90-degree rigid angle between input and output arms of bell-crank
+        const dotL =
+          (sol.leftInPin.x - sol.leftFulcrum.x) * (sol.leftOutPin.x - sol.leftFulcrum.x) +
+          (sol.leftInPin.y - sol.leftFulcrum.y) * (sol.leftOutPin.y - sol.leftFulcrum.y);
+        assert.ok(Math.abs(dotL) < 1e-6, 'Bell-crank L-arms must stay orthogonal (90 deg)');
+
+        // Exact mirror symmetry between Left & Right branches
+        assert.ok(Math.abs(sol.leftInPin.x + sol.rightInPin.x) < 1e-9);
+        assert.ok(Math.abs(sol.leftInPin.y - sol.rightInPin.y) < 1e-9);
+        assert.ok(Math.abs(sol.leftOutPin.x + sol.rightOutPin.x) < 1e-9);
+        assert.ok(Math.abs(sol.leftOutPin.y - sol.rightOutPin.y) < 1e-9);
+      }
+    }
+  }
+
+  const defBell = createDefaultModule('bell-crank', 0, 1);
+  assert.equal(defBell.type, 'bell-crank');
+  assert.equal(defBell.topper, 'double-doors');
+  const curve = sampleCycleCurve(defBell, 72);
+  assert.equal(curve.length, 72);
+  assert.ok(Math.max(...curve) > 0.99 && Math.min(...curve) < 0.01);
+});
+
+test('double-doors and clapping toppers maintain rigid closed-chain links and zero interpenetration', () => {
+  const DK = DOUBLE_DOORS_KINEMATICS;
+  const CK = CLAPPING_KINEMATICS;
+  const BK = BELL_CRANK_KINEMATICS;
+
+  const expectedArmLen = Math.hypot(DK.doorClosedOuterX - DK.pivotX, DK.doorClosedZ - DK.pivotZ);
+  const expectedLugDist = Math.hypot(DK.doorLugX - DK.doorClosedOuterX, DK.doorLugZ - DK.doorClosedZ);
+  const expectedCoupledLen = Math.hypot(DK.doorLugX - DK.linkPivotX, DK.doorLugZ - DK.linkPivotZ);
+  assert.ok(DK.pivotX > DK.doorClosedOuterX && DK.pivotX > DK.baseOuterX, 'Main pivot must be offset outward from door edge and base side');
+  assert.ok(DK.linkPivotX > DK.baseOuterX, 'Coupled swing-link pivot must sit outboard of base side');
+
+  let maxDoorOpen = 0;
+  let minDoorOpen = Infinity;
+  let minBirdBeakZ = Infinity;
+  let maxBirdBeakZ = -Infinity;
+  let maxOpenOuterBackX = -Infinity;
+  let minPalmGap = Infinity;
+  let maxArmSpread = -Infinity;
+
+  for (let i = 0; i <= 40; i++) {
+    const sx = BK.sliderMinBoundX + (i / 40) * (BK.sliderMaxBoundX - BK.sliderMinBoundX);
+
+    const door = solveTopperDoubleDoorsLinkage(sx);
+    const dHornL = Math.hypot(door.leftHornX - -DK.pivotX, door.leftHornZ - DK.pivotZ);
+    const dLinkL = Math.hypot(door.leftHornX - -door.sliderX, door.leftHornZ);
+    const dMainArmR = Math.hypot(door.rightHingeX - DK.pivotX, door.rightHingeZ - DK.pivotZ);
+    const dLugSpanR = Math.hypot(door.rightLugX - door.rightHingeX, door.rightLugZ - door.rightHingeZ);
+    const dCoupledArmR = Math.hypot(door.rightLugX - DK.linkPivotX, door.rightLugZ - DK.linkPivotZ);
+    const dBirdToggle = Math.hypot(door.sliderX, door.birdCarriageZ);
+    assert.ok(Math.abs(dHornL - DK.hornR) < 1e-6);
+    assert.ok(Math.abs(dLinkL - DK.linkLen) < 1e-6);
+    assert.ok(Math.abs(dMainArmR - expectedArmLen) < 1e-6);
+    assert.ok(Math.abs(dLugSpanR - expectedLugDist) < 1e-6);
+    assert.ok(Math.abs(dCoupledArmR - expectedCoupledLen) < 1e-6);
+    assert.ok(Math.abs(dBirdToggle - DK.birdToggleLen) < 1e-6);
+    assert.ok(door.doorOpenRad >= 0 && door.doorOpenRad <= Math.PI * 0.56);
+    assert.ok(door.rightLugX > DK.baseOuterX, `Coupled door lug (${door.rightLugX}) must clear base side (${DK.baseOuterX})`);
+    // Check all 4 swept door leaf corners against jamb front face (z <= DK.jambFrontZ)
+    const c = Math.cos(door.doorOpenRad);
+    const s = Math.sin(door.doorOpenRad);
+    for (const lx of [-DK.doorWidth, 0]) {
+      for (const lz of [-DK.doorThick * 0.5, DK.doorThick * 0.5]) {
+        const worldX = door.rightHingeX + lx * c + lz * s;
+        const worldZ = door.rightHingeZ - lx * s + lz * c;
+        assert.ok(
+          worldZ > DK.jambFrontZ,
+          `Door corner (lx=${lx}, lz=${lz}) at openRad=${door.doorOpenRad} swept to z=${worldZ} <= jambFrontZ (${DK.jambFrontZ})`
+        );
+        if (lx === 0 && lz === -DK.doorThick * 0.5) {
+          maxOpenOuterBackX = Math.max(maxOpenOuterBackX, worldX);
+        }
+      }
+    }
+    minDoorOpen = Math.min(minDoorOpen, door.doorOpenRad);
+    maxDoorOpen = Math.max(maxDoorOpen, door.doorOpenRad);
+    minBirdBeakZ = Math.min(minBirdBeakZ, door.birdBeakZ);
+    maxBirdBeakZ = Math.max(maxBirdBeakZ, door.birdBeakZ);
+
+    const clap = solveTopperClappingLinkage(sx);
+    for (const sideSign of [-1, 1] as const) {
+      const branch = sideSign === -1 ? clap.left : clap.right;
+      const dHorn = Math.hypot(branch.hornX - branch.shoulderX, branch.hornY - branch.shoulderY);
+      const dRod = Math.hypot(branch.hornX - sideSign * clap.sliderX, branch.hornY - CK.pinY);
+      const dArm = Math.hypot(branch.wristX - branch.shoulderX, branch.wristY - branch.shoulderY);
+      assert.ok(Math.abs(dHorn - CK.armHornR) < 1e-6);
+      assert.ok(Math.abs(dRod - CK.armRodLen) < 1e-6);
+      assert.ok(Math.abs(dArm - CK.armLen) < 1e-6);
+    }
+    // Rear pushrod plane (z = -0.145, r = 0.009) must clear arms (z >= -0.119) & torso (z >= -0.0825)
+    assert.ok(CK.rodPlaneZ + 0.009 < -0.119, 'Clapping pushrod plane must stay strictly behind arms and torso');
+    // Deck outrigger (|x| <= sliderX + 0.012) must stay strictly inside puppet plinths (|x| >= hipX - 0.055)
+    assert.ok(clap.sliderX + 0.012 < CK.hipX - 0.055, 'Slider outrigger must clear puppet plinths');
+
+    const palmInnerEdgeL = clap.left.wristX + 0.006 + CK.palmHalfThick;
+    assert.ok(palmInnerEdgeL <= -1e-4, `Clapping palms must never cross x=0 (${palmInnerEdgeL})`);
+    minPalmGap = Math.min(minPalmGap, -2 * palmInnerEdgeL);
+    maxArmSpread = Math.max(maxArmSpread, clap.right.wristX - clap.left.wristX);
+  }
+
+  assert.ok(minDoorOpen < 1e-6, 'Doors must close flush at minimum sliderX');
+  assert.ok(maxDoorOpen >= 1.4, `Doors must swing wide open (~90 deg), got ${maxDoorOpen} rad`);
+  assert.ok(
+    maxOpenOuterBackX > DK.baseOuterX,
+    `Open door back face (${maxOpenOuterBackX}) must swing strictly outside chalet base side (${DK.baseOuterX})`
+  );
+  assert.ok(
+    minBirdBeakZ < DK.doorClosedZ - 0.04,
+    `Bird beak (${minBirdBeakZ}) must retract cleanly behind closed door (${DK.doorClosedZ})`
+  );
+  assert.ok(
+    maxBirdBeakZ > DK.doorClosedZ + 0.2,
+    `Bird beak (${maxBirdBeakZ}) must pop visibly forward past open doorway (${DK.doorClosedZ})`
+  );
+  assert.ok(minPalmGap < 0.025, 'Clapping palms must nearly kiss at clap extreme');
+  assert.ok(maxArmSpread > 0.5, 'Clapping arms must open wide outward');
+});
+
+test('duck-egg Harada Decoy linkage preserves rigid rocker/pitman/egg arms, collar clearance, and trapdoor-before-egg timing', () => {
+  const K = DUCK_EGG_KINEMATICS;
+  assert.ok(Math.abs(K.eggPivotX) > 0.16, 'Egg arm pivot must clear central brass collar (r=0.16)');
+  assert.ok(K.hipX > 0.16 && K.rockerPivotX > 0.16, 'Duck hip and rocker pivot must clear central collar');
+  assert.ok(K.rockerPivotY < K.hipY - 0.15, 'Under-belly rocker stanchion must stay strictly below duck belly underside');
+
+  let prevRockerAng = -Infinity;
+  for (let i = 0; i <= 40; i++) {
+    const pinY = K.minPinY + (i / 40) * (K.maxPinY - K.minPinY);
+    const sol = solveTopperDuckEggLinkage(pinY);
+
+    assert.ok(Number.isFinite(sol.rockerPinX) && Number.isFinite(sol.rockerPinY));
+    assert.ok(Number.isFinite(sol.eggCenterX) && Number.isFinite(sol.eggCenterY));
+
+    const dRocker = Math.hypot(sol.rockerPinX - K.rockerPivotX, sol.rockerPinY - K.rockerPivotY);
+    const dPitman = Math.hypot(sol.rockerPinX - 0, sol.rockerPinY - sol.pinY);
+    const dEggArm = Math.hypot(sol.eggCenterX - K.eggPivotX, sol.eggCenterY - K.eggPivotY);
+    const dEggLug = Math.hypot(sol.eggLugX - K.eggPivotX, sol.eggLugY - K.eggPivotY);
+
+    assert.ok(Math.abs(dRocker - K.rockerArmLen) < 1e-6, `Rocker arm drifted: ${dRocker}`);
+    assert.ok(Math.abs(dPitman - K.pitmanLen) < 1e-6, `Pitman rod drifted: ${dPitman}`);
+    assert.ok(Math.abs(dEggArm - K.eggArmLen) < 1e-6, `Egg arm drifted: ${dEggArm}`);
+    assert.ok(Math.abs(dEggLug - K.eggLugRadius) < 1e-6, `Egg lug drifted: ${dEggLug}`);
+    assert.ok(sol.rockerPinX <= 0.205, `Rocker pin (${sol.rockerPinX}) must clear front breast (x>=0.225)`);
+    assert.ok(sol.rockerPinY <= 0.72, `Rocker pin (${sol.rockerPinY}) must stay below saddleback (y>=0.78)`);
+
+    assert.ok(sol.rockerAngleRad > prevRockerAng, 'Rocker angle must advance strictly monotonically with pinY');
+    prevRockerAng = sol.rockerAngleRad;
+
+    if (sol.egg01 > 0.05) {
+      assert.ok(
+        sol.flap01 > 0.85,
+        `Rear trapdoor must swing wide open (flap01=${sol.flap01}) before egg exits (egg01=${sol.egg01})`
+      );
+    }
+  }
+
+  const rest = solveTopperDuckEggLinkage(K.minPinY);
+  assert.equal(rest.flap01, 0);
+  assert.equal(rest.egg01, 0);
+  assert.equal(rest.quack01, 0);
+  assert.ok(rest.eggCenterX + K.eggRadiusX < -0.04, 'Concealed egg must clear central pushrod clevis (x=0)');
+  assert.ok(
+    rest.eggCenterX - K.eggRadiusX > K.hipX + K.flapPivotLocalX + 0.012,
+    'Concealed egg rear must clear closed tail trapdoor inner face'
+  );
+
+  const laid = solveTopperDuckEggLinkage(0.68);
+  assert.equal(laid.flap01, 1);
+  assert.equal(laid.egg01, 1);
+  assert.equal(laid.quack01, 1);
+  assert.ok(Math.abs(laid.eggCenterX - K.nestCenterX) < 0.01, 'Laid egg must settle in straw nest center');
+
+  const haradaPreset = CLASSIC_PRESETS.find((p) => p.id === 'harada-duck-egg');
+  assert.ok(haradaPreset, 'harada-duck-egg preset must exist');
+  assert.equal(haradaPreset.modules[0].type, 'cam-follower');
+  if (haradaPreset.modules[0].type === 'cam-follower') {
+    assert.equal(haradaPreset.modules[0].camType, 'pear');
+    assert.equal(haradaPreset.modules[0].topper, 'duck-egg');
+  }
+});
+
+test('rattle-drum (拨浪鼓) driven by dual-eccentric alternating dynamics preserves cord length, drum clearance, and opposite-face strikes', () => {
+  const RK = RATTLE_DRUM_KINEMATICS;
+  let maxFrontPulse = 0;
+  let maxBackPulse = 0;
+  let minVel = Infinity;
+  let maxVel = -Infinity;
+  let minAcc = Infinity;
+  let maxAcc = -Infinity;
+
+  for (let deg = 0; deg < 360; deg += 4) {
+    const theta = (deg * Math.PI) / 180;
+    const dualSol = solveDualEccentric(theta, {
+      phaseDeg: 0,
+      camRadius: 0.35,
+      eccentricity: 0.1,
+      gearRatio: 1.5,
+    });
+    assert.ok(Number.isFinite(dualSol.angularVelNorm));
+    assert.ok(Number.isFinite(dualSol.angularAccNorm));
+    minVel = Math.min(minVel, dualSol.angularVelNorm);
+    maxVel = Math.max(maxVel, dualSol.angularVelNorm);
+    minAcc = Math.min(minAcc, dualSol.angularAccNorm);
+    maxAcc = Math.max(maxAcc, dualSol.angularAccNorm);
+
+    const drumSol = solveTopperRattleDrum(
+      dualSol.drivenAngleRad,
+      dualSol.angularVelNorm,
+      dualSol.angularAccNorm
+    );
+    assert.ok(Number.isFinite(drumSol.swingNorm));
+    assert.ok(drumSol.centrifugal01 >= 0 && drumSol.centrifugal01 <= 1);
+    maxFrontPulse = Math.max(maxFrontPulse, drumSol.frontStrikePulse01);
+    maxBackPulse = Math.max(maxBackPulse, drumSol.backStrikePulse01);
+
+    for (const cord of [drumSol.leftCord, drumSol.rightCord]) {
+      assert.ok(
+        Math.abs(cord.totalCordLength - RK.cordLength) < 0.025,
+        `Cord length (${cord.totalCordLength}) drifted from ${RK.cordLength} at deg=${deg}`
+      );
+      assert.ok(
+        Math.abs(cord.elbow.x) > RK.drumRadius,
+        `Cord elbow (x=${cord.elbow.x}) must clear drum barrel radius (${RK.drumRadius})`
+      );
+      const rFace = Math.hypot(cord.bead.x, cord.bead.y - RK.drumCenterY);
+      const insideBarrelCylinder =
+        rFace < RK.drumRadius + RK.beadRadius - 1e-3 &&
+        Math.abs(cord.bead.z) < RK.drumHalfDepth + RK.beadRadius - 1e-3;
+      assert.equal(
+        insideBarrelCylinder,
+        false,
+        `Bead at (${cord.bead.x}, ${cord.bead.y}, ${cord.bead.z}) penetrated drum cylinder at deg=${deg}`
+      );
+    }
+
+    assert.equal(
+      drumSol.leftCord.strikeSide,
+      -drumSol.rightCord.strikeSide,
+      `Left & right beads must whip to opposite Z faces at deg=${deg}`
+    );
+  }
+
+  assert.ok(minVel < -0.5 && maxVel > 0.5, 'Dual-eccentric angular velocity must reverse each half turn');
+  assert.ok(minAcc < -0.5 && maxAcc > 0.5, 'Dual-eccentric angular acceleration must reverse at dead centers');
+  assert.ok(maxFrontPulse > 0.7 && maxBackPulse > 0.7, 'Both front (+Z) and back (-Z) drumheads must receive clear strikes');
+
+  const rattlePreset = CLASSIC_PRESETS.find((p) => p.id === 'folk-rattle-drum');
+  assert.ok(rattlePreset, 'folk-rattle-drum preset must exist');
+  assert.equal(rattlePreset.modules[0].type, 'dual-eccentric');
+  if (rattlePreset.modules[0].type === 'dual-eccentric') {
+    assert.equal(rattlePreset.modules[0].topper, 'rattle-drum');
+  }
+});
+
+test('donkey-mill (毛驴拉磨) with vintage roller skates maintains rigid 2-link IK, flush track rolling, zero penetration, and forward wheel spin', () => {
+  const K = DONKEY_MILL_KINEMATICS;
+
+  let minClearance = Infinity;
+  let maxClearance = -Infinity;
+  let glideSamples = 0;
+  let maxStrideZ = 0;
+  let prevSpinFL = -Infinity;
+
+  for (let deg = 0; deg <= 720; deg += 3) {
+    const angleRad = (deg * Math.PI) / 180;
+    const sol = solveTopperDonkeyMill(angleRad);
+
+    assert.ok(Number.isFinite(sol.millAngleRad));
+    assert.ok(Number.isFinite(sol.gaitPhaseRad));
+    assert.ok(Number.isFinite(sol.donkeyOrbitAngleRad));
+
+    const orbitRadiusActual = Math.hypot(sol.donkeyPos.x, sol.donkeyPos.z);
+    assert.ok(
+      Math.abs(orbitRadiusActual - K.orbitRadius) < 1e-6,
+      `Donkey orbit radius drifted: ${orbitRadiusActual}`
+    );
+
+    const hitchRadius = Math.hypot(sol.hitchTipWorld.x, sol.hitchTipWorld.z);
+    assert.ok(
+      Math.abs(hitchRadius - K.hitchBoomLen) < 1e-6,
+      `Hitch boom length drifted: ${hitchRadius}`
+    );
+
+    const legs = [sol.frontLeftLeg, sol.frontRightLeg, sol.rearLeftLeg, sol.rearRightLeg];
+    for (const leg of legs) {
+      const dThigh = Math.hypot(leg.knee.y - leg.hip.y, leg.knee.z - leg.hip.z);
+      const dShank = Math.hypot(leg.ankle.y - leg.knee.y, leg.ankle.z - leg.knee.z);
+
+      assert.ok(
+        Math.abs(dThigh - K.thighLen) < 1e-6,
+        `Thigh link length (${dThigh}) drifted from ${K.thighLen} at deg=${deg}`
+      );
+      assert.ok(
+        Math.abs(dShank - K.shankLen) < 1e-6,
+        `Shank link length (${dShank}) drifted from ${K.shankLen} at deg=${deg}`
+      );
+
+      // Nested Three.js rotation telescope invariant: world skate rotX === -skatePitchRad
+      const netSkateRotX =
+        sol.torsoPitchRad + leg.thighLocalRotX + leg.shankLocalRotX + leg.skateLocalRotX;
+      assert.ok(
+        Math.abs(netSkateRotX - -leg.skatePitchRad) < 1e-9,
+        `Nested leg rotations must telescope to -skatePitchRad (${netSkateRotX} vs ${-leg.skatePitchRad})`
+      );
+
+      // Verify zero brass-track penetration
+      assert.ok(
+        leg.hoof.y >= K.deckTopY - 1e-9,
+        `Roller wheel (${leg.hoof.y}) penetrated track surface (${K.deckTopY}) at deg=${deg}`
+      );
+      assert.ok(leg.groundClearance >= -1e-9);
+
+      if (leg.isGliding) {
+        glideSamples++;
+        assert.ok(
+          Math.abs(leg.groundClearance) < 1e-9,
+          `Gliding roller skate must roll flush on track (got clearance=${leg.groundClearance})`
+        );
+        assert.equal(leg.skatePitchRad, 0);
+      }
+
+      minClearance = Math.min(minClearance, leg.groundClearance);
+      maxClearance = Math.max(maxClearance, leg.groundClearance);
+      maxStrideZ = Math.max(maxStrideZ, Math.abs(leg.ankle.z - (leg.hip.z >= 0 ? K.shoulderZ : K.hipZ)));
+    }
+
+    assert.ok(
+      sol.frontLeftLeg.wheelSpinRad > prevSpinFL,
+      `Roller wheels must spin monotonically forward at deg=${deg}`
+    );
+    prevSpinFL = sol.frontLeftLeg.wheelSpinRad;
+
+    // Diagonal skating pairing: FL & RR share glide/swing phase, opposite FR & RL
+    assert.equal(sol.frontLeftLeg.isGliding, sol.rearRightLeg.isGliding);
+    assert.equal(sol.frontRightLeg.isGliding, sol.rearLeftLeg.isGliding);
+  }
+
+  assert.ok(glideSamples > 100, 'Skates must roll flush on track across glide stroke');
+  assert.ok(minClearance >= -1e-9, 'All wheels must maintain non-negative clearance to brass track');
+  assert.ok(maxClearance > 0.015, 'Skates must lift cleanly during forward recovery swing');
+  assert.ok(maxStrideZ > 0.055, 'Skates must sweep a visible forward-backward glide stride');
+
+  const donkeyPreset = CLASSIC_PRESETS.find((p) => p.id === 'folk-donkey-mill');
+  assert.ok(donkeyPreset, 'folk-donkey-mill preset must exist');
+  assert.equal(donkeyPreset.modules[0].type, 'pin-lantern');
+  if (donkeyPreset.modules[0].type === 'pin-lantern') {
+    assert.equal(donkeyPreset.modules[0].topper, 'donkey-mill');
+  }
+});
+
+test('digital-numbers (7-cam 7-segment display) cycles accurately 0..9 and 9..0 with rigid 4-bar crank-rockers and zero cam penetration', () => {
+  const K = DIGITAL_NUMBERS_KINEMATICS;
+
+  // 1. Verify all 10 digits hold crisp exact ON (armTilt = 0) and OFF (armTilt = -PI/2) states at 36-deg centers
+  for (const dir of [1, -1] as const) {
+    for (let step = 0; step < 10; step++) {
+      const deg = step * 36;
+      const theta = (deg * Math.PI) / 180;
+      const expectedDigit = dir === 1 ? step : (10 - step) % 10;
+      const sol = solveDigitalNumbers(theta, {
+        phaseDeg: 0,
+        dwellRatio: 0.55,
+        countDirection: dir,
+      });
+      assert.equal(sol.activeDigit, expectedDigit, `Expected digit ${expectedDigit} at deg=${deg}`);
+      assert.equal(sol.isTransitioning, false, `Sector center deg=${deg} must be inside dwell plateau`);
+
+      const pattern = DIGITAL_SEGMENT_PATTERNS[expectedDigit];
+      for (let i = 0; i < K.slotCount; i++) {
+        const seg = sol.segments[i];
+        if (pattern[i] === 1) {
+          assert.ok(seg.on01 > 0.99, `Segment ${seg.segmentId} should be ON (1) for digit ${expectedDigit}`);
+          assert.ok(Math.abs(seg.armTiltRad) < 0.01, `ON segment ${seg.segmentId} must sit upright at 0 rad`);
+        } else {
+          assert.ok(seg.on01 < 0.01, `Segment ${seg.segmentId} should be OFF (0) for digit ${expectedDigit}`);
+          assert.ok(
+            Math.abs(seg.armTiltRad + Math.PI * 0.5) < 0.01,
+            `OFF segment ${seg.segmentId} must fold back -90 deg (got ${seg.armTiltRad})`
+          );
+        }
+      }
+    }
+  }
+
+  // 2. Sweep full 0..720 deg at 2-deg increments verifying rigid link lengths & cam non-penetration
+  for (let deg = 0; deg <= 720; deg += 2) {
+    const theta = (deg * Math.PI) / 180;
+    const sol = solveDigitalNumbers(theta, {
+      phaseDeg: 0,
+      dwellRatio: 0.55,
+      countDirection: 1,
+    });
+    for (let i = 0; i < K.slotCount; i++) {
+      const seg = sol.segments[i];
+      const crankDist = Math.hypot(seg.crankPin.z - K.pivotBarZ, seg.crankPin.y - K.pivotBarY);
+      const couplerDist = Math.hypot(seg.crankPin.z - 0, seg.crankPin.y - seg.rodTopDeckY);
+      assert.ok(
+        Math.abs(crankDist - K.crankLen) < 1e-6,
+        `Crank horn length drifted (${crankDist} vs ${K.crankLen}) at deg=${deg}, slot=${i}`
+      );
+      assert.ok(
+        Math.abs(couplerDist - K.couplerLen) < 1e-6,
+        `Coupler length drifted (${couplerDist} vs ${K.couplerLen}) at deg=${deg}, slot=${i}`
+      );
+      assert.ok(
+        seg.armTiltRad >= -Math.PI * 0.5 - 1e-4 && seg.armTiltRad <= 1e-4,
+        `armTiltRad out of [-PI/2, 0] at deg=${deg}, slot=${i}: ${seg.armTiltRad}`
+      );
+      const alphaAtTop = Math.PI * 0.5 - theta;
+      const expectedLocalR = evaluateDigitalNumbersCamRadius(i, alphaAtTop, 0.55, 1) + K.camBevelRadial;
+      assert.ok(
+        seg.camTopY >= expectedLocalR - 1e-3,
+        `Follower penetrated cam ${i} at deg=${deg}: footY=${seg.camTopY} < camR=${expectedLocalR}`
+      );
+    }
+  }
+
+  // 3. Verify preset & factory wiring
+  const digitalPreset = CLASSIC_PRESETS.find((p) => p.id === 'yh246801-digital-numbers');
+  assert.ok(digitalPreset, 'yh246801-digital-numbers preset must exist');
+  assert.equal(digitalPreset.modules[0].type, 'digital-numbers');
+  if (digitalPreset.modules[0].type === 'digital-numbers') {
+    assert.equal(digitalPreset.modules[0].topper, 'digital-display');
+  }
+});
+
+test('writing-cam (3-cam programmable drawing automaton) writes legible 1 2 with zero cusps and exact rigid linkage', () => {
+  const K = WRITING_CAM_KINEMATICS;
+  const dist3 = (
+    a: { x: number; y: number; z: number },
+    b: { x: number; y: number; z: number }
+  ) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+
+  const patterns: WritingDigitPattern[] = ['12', '1', '2'];
+  const scales = [0.75, 1.0, 1.15];
+
+  for (const pattern of patterns) {
+    for (const scale of scales) {
+      const contours = sampleWritingCamContours(pattern, scale);
+      assert.equal(contours.length, 3);
+      for (let c = 0; c < 3; c++) {
+        const pts = contours[c];
+        assert.equal(pts.length, K.contourSamples);
+        // Star-shaped contour simplicity check: cross(p_i, p_{i+1}) > 0 (since contour winds CW, p_{i+1} x p_i > 0)
+        let minCross = Infinity;
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i];
+          const q = pts[(i + 1) % pts.length];
+          assert.ok(Number.isFinite(p.radius) && p.radius > K.camBaseRadius - 0.02);
+          const cross = q.x * p.y - q.y * p.x;
+          if (cross < minCross) minCross = cross;
+        }
+        assert.ok(
+          minCross > 0,
+          `Cam ${c} contour must have zero cusps/self-intersections (${pattern}, scale=${scale}, minCross=${minCross})`
+        );
+      }
+
+      let maxXYErr = 0;
+      let maxLiftErr = 0;
+      let sawWrite1 = false;
+      let sawWrite2 = false;
+      let sawJumpLift = false;
+      let minWrite1U = Infinity;
+      let maxWrite1U = -Infinity;
+      let minWrite2U = Infinity;
+      let maxWrite2U = -Infinity;
+
+      for (let deg = 0; deg <= 720; deg += 4) {
+        const theta = (deg * Math.PI) / 180;
+        const sol = solveWritingCam(
+          theta,
+          { phaseDeg: 0, digitPattern: pattern, strokeScale: scale },
+          contours
+        );
+
+        assert.ok(Number.isFinite(sol.paperU) && Number.isFinite(sol.paperV));
+        assert.ok(Number.isFinite(sol.penLift01) && sol.penLift01 >= -1e-6 && sol.penLift01 <= 1 + 1e-6);
+
+        // Rigid arm links + parallel 4-bar forearm rod
+        const upperLen = dist3(sol.shoulderPos, sol.elbowPos);
+        const forearmLen = dist3(sol.elbowPos, sol.wristPos);
+        const parallelLen = dist3(sol.shoulderDrumPin, sol.elbowHornPin);
+        assert.ok(Math.abs(upperLen - K.upperArmLen) < 1e-6, `Upper arm length drifted: ${upperLen}`);
+        assert.ok(Math.abs(forearmLen - K.forearmLen) < 1e-6, `Forearm length drifted: ${forearmLen}`);
+        assert.ok(Math.abs(parallelLen - K.upperArmLen) < 1e-6, `Parallel tie rod drifted: ${parallelLen}`);
+
+        // Bell-crank rigid link constraints
+        const checks = [
+          { b: sol.bellCrankX, cfg: K.bell0 },
+          { b: sol.bellCrankY, cfg: K.bell1 },
+          { b: sol.bellCrankLift, cfg: K.bell2 },
+        ] as const;
+        for (const { b, cfg } of checks) {
+          assert.ok(Math.abs(dist3(b.pivot, b.inPin) - cfg.inLen) < 1e-5);
+          assert.ok(Math.abs(dist3(b.pivot, b.outPin) - cfg.outLen) < 1e-5);
+          const xyCoupler = Math.hypot(b.rodClevis.x - b.inPin.x, b.rodClevis.y - b.inPin.y);
+          assert.ok(Math.abs(xyCoupler - cfg.coupLen) < 1e-5);
+          assert.ok(Math.abs(dist3(b.rodClevis, b.inPin) - Math.hypot(cfg.coupLen, cfg.pivot.z)) < 1e-5);
+          assert.ok(Math.abs(dist3(b.outPin, b.hornPin) - cfg.tieLen) < 1e-5);
+          assert.ok(Math.abs(dist3(b.hornCenter, b.hornPin) - cfg.hornR) < 1e-5);
+        }
+
+        // Trajectory reproduction fidelity
+        const expected = evaluateWritingTrajectory(sol.cycleProgress01, pattern, scale);
+        maxXYErr = Math.max(maxXYErr, Math.hypot(sol.paperU - expected.u, sol.paperV - expected.v));
+        maxLiftErr = Math.max(maxLiftErr, Math.abs(sol.penLift01 - expected.penLift));
+
+        if (expected.penLift === 0 && expected.strokeState === 'writing-1') {
+          sawWrite1 = true;
+          assert.ok(sol.penClearance < 0.002, `Pen must touch paper during writing-1 (${sol.penClearance})`);
+          minWrite1U = Math.min(minWrite1U, sol.paperU);
+          maxWrite1U = Math.max(maxWrite1U, sol.paperU);
+        }
+        if (expected.penLift === 0 && expected.strokeState === 'writing-2') {
+          sawWrite2 = true;
+          assert.ok(sol.penClearance < 0.002, `Pen must touch paper during writing-2 (${sol.penClearance})`);
+          minWrite2U = Math.min(minWrite2U, sol.paperU);
+          maxWrite2U = Math.max(maxWrite2U, sol.paperU);
+        }
+        if (expected.strokeState === 'pen-lift-jump' && expected.penLift > 0.85) {
+          sawJumpLift = true;
+          assert.ok(sol.penClearance >= 0.055, `Pen must lift cleanly during jump (${sol.penClearance})`);
+        }
+      }
+
+      assert.ok(maxXYErr < 0.008, `Max XY cam-tracking error too high (${maxXYErr})`);
+      assert.ok(maxLiftErr < 0.03, `Max lift cam-tracking error too high (${maxLiftErr})`);
+      if (pattern === '12') {
+        assert.ok(sawWrite1 && sawWrite2 && sawJumpLift, 'Mode 12 must visit write-1, jump-lift, and write-2');
+        assert.ok(maxWrite1U < minWrite2U - 0.08, `Digit 1 (${maxWrite1U}) must stay cleanly left of Digit 2 (${minWrite2U})`);
+      } else if (pattern === '1') {
+        assert.ok(sawWrite1 && !sawWrite2);
+      } else {
+        assert.ok(!sawWrite1 && sawWrite2);
+      }
+    }
+  }
+
+  // Preset, module factory, and cycle curve integration checks
+  const writingPreset = CLASSIC_PRESETS.find((p) => p.id === 'waseda-writing-12');
+  assert.ok(writingPreset, 'waseda-writing-12 preset must exist');
+  assert.equal(writingPreset.modules[0].type, 'writing-cam');
+  if (writingPreset.modules[0].type === 'writing-cam') {
+    assert.equal(writingPreset.modules[0].topper, 'writing-arm');
+    assert.equal(writingPreset.modules[0].digitPattern, '12');
+  }
+
+  const defaultMod = createDefaultModule('writing-cam', 0, 1);
+  assert.equal(defaultMod.type, 'writing-cam');
+  const curve = sampleCycleCurve(defaultMod, 60);
+  assert.equal(curve.length, 60);
+  assert.ok(curve.every((val) => Number.isFinite(val)));
+});
+
+
+
+
+
